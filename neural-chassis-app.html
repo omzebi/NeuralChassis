@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>NEURAL CHASSIS COMMAND</title>
+    <link rel="manifest" href='data:application/json,{"name":"NEURAL CHASSIS","short_name":"Chassis","display":"standalone","background_color":"#10141a","theme_color":"#10141a"}'>
+    <meta name="theme-color" content="#10141a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "primary": "#c3f5ff", "primary-container": "#00e5ff",
+                "secondary": "#d7ffc5", "secondary-fixed": "#79ff5b",
+                "tertiary": "#f1e9ff", "error": "#ffb4ab",
+                "surface": "#10141a", "surface-container": "#1c2026",
+                "on-surface": "#dfe2eb", "on-surface-variant": "#bac9cc"
+              },
+              "fontFamily": { "headline": ["Space Grotesk", "sans-serif"], "body": ["Manrope", "sans-serif"] }
+            },
+          },
+        }
+    </script>
+    <style>
+        body { min-height: 100vh; background-color: #10141a; -webkit-tap-highlight-color: transparent; }
+        .glass { background: rgba(49, 53, 60, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .text-glow { text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); }
+        .view-content { display: none; }
+        .view-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .icon { width: 24px; height: 24px; stroke-width: 1.5; stroke: currentColor; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased flex flex-col min-h-screen select-none">
+    
+    <header class="bg-[#10141a]/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-white/5">
+        <button id="install-btn" onclick="installPWA()" class="text-primary active:scale-95 transition-all p-2 rounded-lg hover:bg-white/5 opacity-40">
+            <svg class="icon"><path d="M12 10V2M12 10L16 6M12 10L8 6M6 14C4.89543 14 4 14.8954 4 16V22H20V16C20 14.8954 19.1046 14 18 14H6Z"/></svg>
+        </button>
+        <h1 class="text-xl font-bold text-[#00e5ff] uppercase tracking-wider font-headline text-glow">NEURAL CHASSIS</h1>
+        <button onclick="uiAction('Radar Sweep')" class="text-primary active:scale-95 transition-all p-2 rounded-lg hover:bg-white/5">
+            <svg class="icon animate-pulse"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg>
+        </button>
+    </header>
+
+    <main class="flex-1 max-w-4xl mx-auto w-full p-4 md:p-6 space-y-8 pb-32">
+        
+        <!-- DATA VIEW -->
+        <section id="view-data" class="view-content active">
+            <h2 class="font-headline text-2xl font-bold uppercase mb-8">Telemetry</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-3xl"><span class="text-[10px] uppercase opacity-50">Power</span><p id="vdata-pwr" class="text-4xl font-headline font-bold text-secondary mt-2">87%</p></div>
+                <div class="glass p-6 rounded-3xl"><span class="text-[10px] uppercase opacity-50">Sensor</span><p id="vdata-prox" class="text-4xl font-headline font-bold text-primary mt-2">142cm</p></div>
+            </div>
+            <div class="glass p-6 rounded-3xl mt-6 h-64 flex flex-col">
+                <span class="text-[10px] uppercase opacity-50 mb-4 font-bold">Diagnostics</span>
+                <div id="diag-log" class="flex-1 font-mono text-[9px] space-y-1 opacity-70 overflow-auto"></div>
+            </div>
+        </section>
+
+        <!-- PILOT VIEW -->
+        <section id="view-pilot" class="view-content">
+            <div class="flex flex-col items-center">
+                <div class="text-center mb-10">
+                    <span class="text-[10px] uppercase tracking-widest opacity-50">Velocity</span>
+                    <h2 class="text-6xl font-headline font-bold text-primary mt-2" id="vpilot-speed">0.0</h2>
+                </div>
+                <div class="relative w-80 h-80 rounded-full border border-white/10 flex items-center justify-center bg-white/5 shadow-inner">
+                    <div id="joystick-handle" class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary-container shadow-2xl flex items-center justify-center cursor-pointer touch-none">
+                        <div class="w-16 h-16 rounded-full bg-surface border border-white/10 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                        </div>
+                    </div>
+                </div>
+                <!-- FIXED BUTTONS IN PILOT -->
+                <div class="grid grid-cols-2 gap-4 mt-12 w-full max-w-sm">
+                    <button onclick="uiAction('Lights Activated')" class="glass p-5 rounded-2xl flex flex-col items-center gap-2 active:scale-95 active:bg-white/5 transition-all">
+                        <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                        <span class="text-[10px] font-bold uppercase tracking-widest">Lights</span>
+                    </button>
+                    <button onclick="emergencyStop()" class="glass p-5 rounded-2xl flex flex-col items-center gap-2 border-error/20 text-error active:scale-95 active:bg-error/5 transition-all">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64L5.64 19.36M5.64 6.64l12.72 12.72"/></svg>
+                        <span class="text-[10px] font-bold uppercase tracking-widest">E-Stop</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- AUTO VIEW -->
+        <section id="view-auto" class="view-content">
+            <h2 class="font-headline text-[10px] uppercase tracking-[0.2em] mb-8 border-l-2 border-primary/50 pl-4">Directives</h2>
+            <div class="space-y-6">
+                <!-- Directive 1 -->
+                <div class="glass p-8 rounded-3xl flex justify-between items-center group active:bg-white/5 transition-all">
+                    <div>
+                        <h3 class="font-headline text-2xl font-bold">Avoidance</h3>
+                        <p class="text-[11px] text-on-surface-variant uppercase mt-1">Obstacle Mesh Active</p>
+                    </div>
+                    <button onclick="toggleDirective(this)" class="w-16 h-8 bg-secondary/20 border border-secondary/40 rounded-full flex items-center px-1 transition-colors">
+                        <div class="w-6 h-6 bg-secondary shadow-[0_0_10px_#79ff5b] rounded-full ml-auto transition-transform"></div>
+                    </button>
+                </div>
+                <!-- Directive 2 -->
+                <div class="glass p-8 rounded-3xl flex justify-between items-center opacity-40 active:opacity-60 transition-all">
+                    <div>
+                        <h3 class="font-headline text-2xl font-bold">Line Follower</h3>
+                        <p class="text-[11px] text-on-surface-variant uppercase mt-1">Infrared Tracking</p>
+                    </div>
+                    <button onclick="toggleDirective(this)" class="w-16 h-8 bg-white/10 border border-white/20 rounded-full flex items-center px-1 transition-colors">
+                        <div class="w-6 h-6 bg-white/40 rounded-full transition-transform"></div>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- LINK VIEW -->
+        <section id="view-link" class="view-content">
+            <div class="space-y-8">
+                <div class="glass rounded-3xl p-10 flex flex-col items-center text-center relative overflow-hidden">
+                    <h2 class="font-headline text-3xl text-primary mb-2 uppercase font-bold text-glow">Link Protocol</h2>
+                    <p class="text-[10px] opacity-60 mb-10 tracking-widest uppercase">Select Link Method</p>
+                    <div class="flex gap-4 w-full" id="link-methods">
+                        <button onclick="setLink('bt', this)" class="flex-1 glass py-5 rounded-2xl border-primary bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-widest active:scale-95 transition-all">Bluetooth</button>
+                        <button onclick="setLink('wifi', this)" class="flex-1 glass py-5 rounded-2xl opacity-40 font-bold text-[10px] uppercase tracking-widest active:scale-95 transition-all">WiFi</button>
+                    </div>
+                    <button id="scan-btn" class="mt-8 bg-gradient-to-br from-primary to-primary-container text-surface w-full font-headline font-bold py-5 rounded-2xl shadow-2xl active:scale-95 transition-all tracking-[0.2em] text-xs">SCANNING</button>
+                </div>
+                <div class="space-y-4">
+                    <h3 class="text-[10px] opacity-50 uppercase tracking-widest pl-2">Detected Units</h3>
+                    <div class="glass p-6 rounded-3xl border-l-4 border-secondary flex justify-between items-center">
+                        <div><h4 class="font-headline font-bold">NC-MkIV-Atlas</h4><p class="text-[10px] text-secondary font-bold uppercase tracking-widest">Connected // 98% Sig.</p></div>
+                        <svg class="w-5 h-5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <nav class="fixed bottom-0 left-0 w-full glass rounded-t-[2.5rem] h-24 flex justify-around items-center px-6 z-50">
+        <button onclick="nav('link')" id="nav-link" class="flex flex-col items-center opacity-40"><svg class="icon mb-1"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="text-[9px] uppercase font-bold tracking-widest font-headline">Link</span></button>
+        <button onclick="nav('pilot')" id="nav-pilot" class="flex flex-col items-center opacity-40"><svg class="icon mb-1"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg><span class="text-[9px] uppercase font-bold tracking-widest font-headline">Pilot</span></button>
+        <button onclick="nav('auto')" id="nav-auto" class="flex flex-col items-center opacity-40"><svg class="icon mb-1"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/></svg><span class="text-[9px] uppercase font-bold tracking-widest font-headline">Auto</span></button>
+        <button onclick="nav('data')" id="nav-data" class="flex flex-col items-center text-primary"><svg class="icon mb-1"><path d="M3 3v18h18M18 17l-4-4"/></svg><span class="text-[9px] uppercase font-bold tracking-widest font-headline">Data</span></button>
+    </nav>
+
+    <script>
+        const state = { view: 'data', power: 87, speed: 0, scanning: false };
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('install-btn');
+            if (btn) btn.classList.remove('opacity-40');
+            console.log("PWA Install Ready");
+        });
+
+        async function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') uiAction("Installing...");
+                deferredPrompt = null;
+            } else {
+                alert("MOBILE INSTALL: Tap 'Share' then 'Add to Home Screen' (iOS) or 'Settings' > 'Install App' (Android).");
+                uiAction("Install Manual Info Sent");
+            }
+        }
+
+        function nav(id) {
+            document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + id).classList.add('active');
+            document.querySelectorAll('nav button').forEach(b => { 
+                b.classList.remove('text-primary'); b.classList.add('opacity-40'); 
+            });
+            const active = document.getElementById('nav-' + id);
+            active.classList.add('text-primary'); active.classList.remove('opacity-40');
+        }
+        function uiAction(msg) { 
+            console.log(msg);
+            const log = document.getElementById('diag-log');
+            if (log) {
+                const d = document.createElement('div');
+                d.className = "text-primary/80";
+                d.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString()}]</span> ACTION: ${msg.toUpperCase()}`;
+                log.prepend(d);
+            }
+            if (window.bluetoothSerial && state.connected) {
+                // If special command starts with 'SEND:', send just the char
+                if (msg.startsWith('SEND:')) {
+                    const char = msg.split(':')[1];
+                    window.bluetoothSerial.write(char, () => {}, (err) => console.log(err));
+                }
+            }
+        }
+
+        function setLink(method, btn) {
+            const container = document.getElementById('link-methods');
+            container.querySelectorAll('button').forEach(b => {
+                b.classList.remove('text-primary', 'bg-primary/10', 'border-primary', 'opacity-100');
+                b.classList.add('opacity-40');
+            });
+            btn.classList.add('text-primary', 'border-primary', 'bg-primary/10', 'opacity-100');
+            btn.classList.remove('opacity-40');
+            uiAction("Link Method: " + method.toUpperCase());
+        }
+
+        function emergencyStop() { 
+            state.speed = 0; 
+            document.getElementById('vpilot-speed').innerText = "0.0"; 
+            uiAction('SEND:S');
+            alert("EMERGENCY STOP!"); 
+        }
+
+        function toggleDirective(btn) {
+            const ball = btn.querySelector('div');
+            const isActive = ball.classList.contains('ml-auto');
+            if (isActive) {
+                ball.classList.remove('ml-auto');
+                btn.classList.remove('bg-secondary/20', 'border-secondary/40');
+                btn.classList.add('bg-white/10', 'border-white/20');
+                ball.classList.remove('shadow-[0_0_10px_#79ff5b]', 'bg-secondary');
+                ball.classList.add('bg-white/40');
+                btn.parentElement.classList.add('opacity-40');
+            } else {
+                ball.classList.add('ml-auto');
+                btn.classList.add('bg-secondary/20', 'border-secondary/40');
+                btn.classList.remove('bg-white/10', 'border-white/20');
+                ball.classList.add('shadow-[0_0_10px_#79ff5b]', 'bg-secondary');
+                ball.classList.remove('bg-white/40');
+                btn.parentElement.classList.remove('opacity-40');
+            }
+        }
+
+        // Joystick
+        const handle = document.getElementById('joystick-handle');
+        if (handle) {
+            let drag = false; const limit = 100;
+            const move = (e) => {
+                if (!drag) return; const rect = handle.parentElement.getBoundingClientRect();
+                const center = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+                const client = e.touches ? e.touches[0] : e;
+                let dx = client.clientX - center.x; let dy = client.clientY - center.y;
+                const dist = Math.sqrt(dx*dx + dy*dy); if (dist > limit) { dx *= limit/dist; dy *= limit/dist; }
+                handle.style.transform = `translate(${dx}px, ${dy}px)`;
+                state.speed = (Math.abs(dy)/limit*25).toFixed(1);
+                document.getElementById('vpilot-speed').innerText = state.speed;
+                
+                // Logic for real commands based on joystick position
+                if (dy < -50) sendMove('F');
+                else if (dy > 50) sendMove('B');
+                else if (dx < -50) sendMove('L');
+                else if (dx > 50) sendMove('R');
+                else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) sendMove('S');
+            };
+            handle.addEventListener('mousedown', () => { drag = true; handle.style.transition = 'none'; });
+            handle.addEventListener('touchstart', (e) => { drag = true; handle.style.transition = 'none'; e.preventDefault(); }, {passive:false});
+            window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, {passive:false});
+            window.addEventListener('mouseup', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); });
+            window.addEventListener('touchend', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); });
+        }
+
+        // Native Bluetooth Logic
+        function startNativeScan() {
+            if (!window.bluetoothSerial) {
+                alert("Native Bluetooth not available (Are you on a mobile browser or APK?)");
+                return;
+            }
+            state.scanning = true;
+            document.getElementById('scan-btn').innerText = 'LISTING...';
+            
+            window.bluetoothSerial.list((devices) => {
+                state.scanning = false;
+                document.getElementById('scan-btn').innerText = 'SCANNING';
+                const hc05 = devices.find(d => d.name && d.name.includes('HC-05'));
+                if (hc05) {
+                    uiAction("Connecting to " + hc05.name);
+                    window.bluetoothSerial.connect(hc05.id, () => {
+                        state.connected = true;
+                        uiAction("LINK ESTABLISHED");
+                        alert("CONNECTED TO " + hc05.name);
+                    }, () => alert("Connection Failed"));
+                } else {
+                    alert("HC-05 not found in paired devices. Please pair it in Android settings first.");
+                }
+            }, (err) => alert("Scan error: " + err));
+        }
+
+        document.getElementById('scan-btn').onclick = () => {
+            if (window.bluetoothSerial) {
+                startNativeScan();
+            } else {
+                if (state.scanning) return; state.scanning = true;
+                document.getElementById('scan-btn').innerText = 'LINKING...';
+                setTimeout(() => { state.scanning = false; document.getElementById('scan-btn').innerText = 'SCANNING'; alert("SIMULATION: LINKED TO NC-MkIV"); }, 3000);
+            }
+        };
+
+        function sendMove(cmd) {
+            uiAction('SEND:' + cmd);
+        }
+        // Telemetry
+        setInterval(() => {
+            state.power = Math.max(0, state.power - 0.005);
+            const p = document.getElementById('vdata-pwr'); if (p) p.innerText = Math.round(state.power) + "%";
+            const r = document.getElementById('vdata-prox'); if (r) r.innerText = (140 + Math.random()*5).toFixed(0) + "cm";
+            if (Math.random() > 0.95) {
+                const logs = ["[CALIBRATING]", "[SIGNAL_NOMINAL]", "[CMD_RX_0x4F]", "[KINETIC_FETCH]"];
+                const c = document.getElementById('diag-log'); if (c) {
+                    const d = document.createElement('div'); d.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString()}]</span> ${logs[Math.floor(Math.random()*logs.length)]}`;
+                    c.prepend(d); if (c.children.length > 20) c.removeChild(c.lastChild);
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

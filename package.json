@@ -1,0 +1,27 @@
+{
+  "name": "car",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^4.8.2",
+    "@capacitor/cli": "^4.8.2",
+    "@capacitor/core": "^4.8.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "cordova-plugin-bluetooth-serial": "^0.4.7",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.8.0",
+    "postcss": "^8.5.10",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.2",
+    "vite": "^8.0.8"
+  },
+  "description": ""
+}

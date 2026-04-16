@@ -1,0 +1,6 @@
+{
+  "appId": "com.neural.chassis",
+  "appName": "NeuralChassis",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

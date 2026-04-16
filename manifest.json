@@ -1,0 +1,23 @@
+{
+  "name": "NEURAL CHASSIS",
+  "short_name": "Chassis",
+  "description": "Premium Command Suite for Neural Chassis Robotics.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#10141a",
+  "theme_color": "#10141a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "neural_chassis_icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "neural_chassis_icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
