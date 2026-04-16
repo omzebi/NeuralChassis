@@ -217,12 +217,30 @@
             }, (err) => alert("List fail: " + err));
         };
 
+        // Telemetry & Serial Input from Arduino
         setInterval(() => {
-            state.power = Math.max(0, state.power - 0.005);
+            if (window.bluetoothSerial && state.connected) {
+                window.bluetoothSerial.read((data) => {
+                    if (data && data.length > 0) {
+                        // Parse Proximity P:123
+                        if (data.includes('P:')) {
+                            const val = data.split('P:')[1].split('|')[0];
+                            const prox = document.getElementById('vdata-prox');
+                            if (prox) prox.innerText = val + "cm";
+                        }
+                        // Parse IR Line Sensors L:10101
+                        if (data.includes('L:')) {
+                            const val = data.split('L:')[1].trim();
+                            uiAction("IR MATRIX: " + val);
+                        }
+                    }
+                }, (err) => console.log(err));
+            }
+            
+            state.power = Math.max(0, state.power - 0.001);
             const p = document.getElementById('vdata-pwr'); if (p) p.innerText = Math.round(state.power) + "%";
-            const r = document.getElementById('vdata-prox'); if (r) r.innerText = (140 + Math.random()*5).toFixed(0) + "cm";
-            if (Math.random() > 0.98) uiAction("System nominal...");
-        }, 1000);
+            if (Math.random() > 0.99) uiAction("System connection stable...");
+        }, 500);
     </script>
 </body>
 </html>
