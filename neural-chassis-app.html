@@ -58,7 +58,7 @@
                 <div class="glass p-6 rounded-3xl"><span class="text-[10px] uppercase opacity-50">Sensor</span><p id="vdata-prox" class="text-4xl font-headline font-bold text-primary mt-2">142cm</p></div>
             </div>
             <div class="glass p-6 rounded-3xl mt-6 h-64 flex flex-col">
-                <span class="text-[10px] uppercase opacity-50 mb-4 font-bold">Diagnostics</span>
+                <span class="text-[10px] uppercase opacity-50 mb-4 font-bold">Diagnostics & Bluetooth Feed</span>
                 <div id="diag-log" class="flex-1 font-mono text-[9px] space-y-1 opacity-70 overflow-auto"></div>
             </div>
         </section>
@@ -77,7 +77,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- FIXED BUTTONS IN PILOT -->
                 <div class="grid grid-cols-2 gap-4 mt-12 w-full max-w-sm">
                     <button onclick="uiAction('Lights Activated')" class="glass p-5 rounded-2xl flex flex-col items-center gap-2 active:scale-95 active:bg-white/5 transition-all">
                         <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
@@ -87,6 +86,7 @@
                         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64L5.64 19.36M5.64 6.64l12.72 12.72"/></svg>
                         <span class="text-[10px] font-bold uppercase tracking-widest">E-Stop</span>
                     </button>
+                    <button onclick="sendMove('F')" class="col-span-2 glass p-3 rounded-xl text-[10px] uppercase font-bold opacity-30">Test Forward ('F')</button>
                 </div>
             </div>
         </section>
@@ -95,25 +95,9 @@
         <section id="view-auto" class="view-content">
             <h2 class="font-headline text-[10px] uppercase tracking-[0.2em] mb-8 border-l-2 border-primary/50 pl-4">Directives</h2>
             <div class="space-y-6">
-                <!-- Directive 1 -->
                 <div class="glass p-8 rounded-3xl flex justify-between items-center group active:bg-white/5 transition-all">
-                    <div>
-                        <h3 class="font-headline text-2xl font-bold">Avoidance</h3>
-                        <p class="text-[11px] text-on-surface-variant uppercase mt-1">Obstacle Mesh Active</p>
-                    </div>
-                    <button onclick="toggleDirective(this)" class="w-16 h-8 bg-secondary/20 border border-secondary/40 rounded-full flex items-center px-1 transition-colors">
-                        <div class="w-6 h-6 bg-secondary shadow-[0_0_10px_#79ff5b] rounded-full ml-auto transition-transform"></div>
-                    </button>
-                </div>
-                <!-- Directive 2 -->
-                <div class="glass p-8 rounded-3xl flex justify-between items-center opacity-40 active:opacity-60 transition-all">
-                    <div>
-                        <h3 class="font-headline text-2xl font-bold">Line Follower</h3>
-                        <p class="text-[11px] text-on-surface-variant uppercase mt-1">Infrared Tracking</p>
-                    </div>
-                    <button onclick="toggleDirective(this)" class="w-16 h-8 bg-white/10 border border-white/20 rounded-full flex items-center px-1 transition-colors">
-                        <div class="w-6 h-6 bg-white/40 rounded-full transition-transform"></div>
-                    </button>
+                    <div><h3 class="font-headline text-2xl font-bold">Avoidance</h3><p class="text-[11px] text-on-surface-variant uppercase mt-1">Obstacle Mesh Active</p></div>
+                    <button onclick="toggleDirective(this)" class="w-16 h-8 bg-secondary/20 border border-secondary/40 rounded-full flex items-center px-1 transition-colors"><div class="w-6 h-6 bg-secondary shadow-[0_0_10px_#79ff5b] rounded-full ml-auto transition-transform"></div></button>
                 </div>
             </div>
         </section>
@@ -130,12 +114,8 @@
                     </div>
                     <button id="scan-btn" class="mt-8 bg-gradient-to-br from-primary to-primary-container text-surface w-full font-headline font-bold py-5 rounded-2xl shadow-2xl active:scale-95 transition-all tracking-[0.2em] text-xs">SCANNING</button>
                 </div>
-                <div class="space-y-4">
-                    <h3 class="text-[10px] opacity-50 uppercase tracking-widest pl-2">Detected Units</h3>
-                    <div class="glass p-6 rounded-3xl border-l-4 border-secondary flex justify-between items-center">
-                        <div><h4 class="font-headline font-bold">NC-MkIV-Atlas</h4><p class="text-[10px] text-secondary font-bold uppercase tracking-widest">Connected // 98% Sig.</p></div>
-                        <svg class="w-5 h-5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </div>
+                <div class="space-y-4 text-center">
+                    <p id="bt-status" class="text-[10px] font-bold text-error uppercase">Status: Disconnected</p>
                 </div>
             </div>
         </section>
@@ -150,97 +130,55 @@
     </nav>
 
     <script>
-        const state = { view: 'data', power: 87, speed: 0, scanning: false };
+        const state = { view: 'data', power: 87, speed: 0, scanning: false, connected: false };
         let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            const btn = document.getElementById('install-btn');
-            if (btn) btn.classList.remove('opacity-40');
-            console.log("PWA Install Ready");
-        });
-
-        async function installPWA() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') uiAction("Installing...");
-                deferredPrompt = null;
-            } else {
-                alert("MOBILE INSTALL: Tap 'Share' then 'Add to Home Screen' (iOS) or 'Settings' > 'Install App' (Android).");
-                uiAction("Install Manual Info Sent");
-            }
-        }
-
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('install-btn').classList.remove('opacity-40'); });
+        async function installPWA() { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; } else { alert("Use 'Add to Home Screen' in browser settings."); } }
+        
         function nav(id) {
             document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
             document.getElementById('view-' + id).classList.add('active');
-            document.querySelectorAll('nav button').forEach(b => { 
-                b.classList.remove('text-primary'); b.classList.add('opacity-40'); 
-            });
-            const active = document.getElementById('nav-' + id);
-            active.classList.add('text-primary'); active.classList.remove('opacity-40');
+            document.querySelectorAll('nav button').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('text-primary'); });
+            document.getElementById('nav-' + id).classList.remove('opacity-40');
+            document.getElementById('nav-' + id).classList.add('text-primary');
         }
+
         function uiAction(msg) { 
-            console.log(msg);
             const log = document.getElementById('diag-log');
             if (log) {
                 const d = document.createElement('div');
-                d.className = "text-primary/80";
-                d.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString()}]</span> ACTION: ${msg.toUpperCase()}`;
+                d.className = msg.startsWith('BT:') ? "text-secondary font-bold" : "text-primary/60";
+                d.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString().split(' ')[0]}]</span> ${msg}`;
                 log.prepend(d);
             }
-            if (window.bluetoothSerial && state.connected) {
-                // If special command starts with 'SEND:', send just the char
-                if (msg.startsWith('SEND:')) {
-                    const char = msg.split(':')[1];
-                    window.bluetoothSerial.write(char, () => {}, (err) => console.log(err));
-                }
+            if (window.bluetoothSerial && state.connected && msg.startsWith('BT_SEND:')) {
+                const char = msg.split(':')[1];
+                window.bluetoothSerial.write(char, () => console.log("Sent: "+char), (err) => alert("BT Error: "+err));
             }
         }
 
+        function sendMove(cmd) { uiAction('BT_SEND:' + cmd); }
+
         function setLink(method, btn) {
-            const container = document.getElementById('link-methods');
-            container.querySelectorAll('button').forEach(b => {
-                b.classList.remove('text-primary', 'bg-primary/10', 'border-primary', 'opacity-100');
-                b.classList.add('opacity-40');
-            });
-            btn.classList.add('text-primary', 'border-primary', 'bg-primary/10', 'opacity-100');
-            btn.classList.remove('opacity-40');
-            uiAction("Link Method: " + method.toUpperCase());
+            document.querySelectorAll('#link-methods button').forEach(b => b.classList.add('opacity-40'));
+            btn.classList.remove('opacity-40'); uiAction("Mode: " + method.toUpperCase());
         }
 
-        function emergencyStop() { 
-            state.speed = 0; 
-            document.getElementById('vpilot-speed').innerText = "0.0"; 
-            uiAction('SEND:S');
-            alert("EMERGENCY STOP!"); 
-        }
+        function emergencyStop() { state.speed = 0; document.getElementById('vpilot-speed').innerText = "0.0"; sendMove('S'); alert("STOP"); }
 
         function toggleDirective(btn) {
             const ball = btn.querySelector('div');
-            const isActive = ball.classList.contains('ml-auto');
-            if (isActive) {
-                ball.classList.remove('ml-auto');
-                btn.classList.remove('bg-secondary/20', 'border-secondary/40');
-                btn.classList.add('bg-white/10', 'border-white/20');
-                ball.classList.remove('shadow-[0_0_10px_#79ff5b]', 'bg-secondary');
-                ball.classList.add('bg-white/40');
-                btn.parentElement.classList.add('opacity-40');
+            if (ball.classList.contains('ml-auto')) {
+                ball.classList.remove('ml-auto'); btn.parentElement.classList.add('opacity-40');
             } else {
-                ball.classList.add('ml-auto');
-                btn.classList.add('bg-secondary/20', 'border-secondary/40');
-                btn.classList.remove('bg-white/10', 'border-white/20');
-                ball.classList.add('shadow-[0_0_10px_#79ff5b]', 'bg-secondary');
-                ball.classList.remove('bg-white/40');
-                btn.parentElement.classList.remove('opacity-40');
+                ball.classList.add('ml-auto'); btn.parentElement.classList.remove('opacity-40');
             }
         }
 
         // Joystick
         const handle = document.getElementById('joystick-handle');
         if (handle) {
-            let drag = false; const limit = 100;
+            let drag = false; const limit = 100; let lastCmd = 'S';
             const move = (e) => {
                 if (!drag) return; const rect = handle.parentElement.getBoundingClientRect();
                 const center = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
@@ -250,72 +188,40 @@
                 handle.style.transform = `translate(${dx}px, ${dy}px)`;
                 state.speed = (Math.abs(dy)/limit*25).toFixed(1);
                 document.getElementById('vpilot-speed').innerText = state.speed;
-                
-                // Logic for real commands based on joystick position
-                if (dy < -50) sendMove('F');
-                else if (dy > 50) sendMove('B');
-                else if (dx < -50) sendMove('L');
-                else if (dx > 50) sendMove('R');
-                else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) sendMove('S');
+                let cmd = 'S';
+                if (dy < -40) cmd = 'F'; else if (dy > 40) cmd = 'B'; else if (dx < -40) cmd = 'L'; else if (dx > 40) cmd = 'R';
+                if (cmd !== lastCmd) { sendMove(cmd); lastCmd = cmd; }
             };
             handle.addEventListener('mousedown', () => { drag = true; handle.style.transition = 'none'; });
             handle.addEventListener('touchstart', (e) => { drag = true; handle.style.transition = 'none'; e.preventDefault(); }, {passive:false});
             window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, {passive:false});
-            window.addEventListener('mouseup', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); });
-            window.addEventListener('touchend', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); });
+            window.addEventListener('mouseup', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); lastCmd = 'S'; });
+            window.addEventListener('touchend', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); lastCmd = 'S'; });
         }
 
-        // Native Bluetooth Logic
-        function startNativeScan() {
-            if (!window.bluetoothSerial) {
-                alert("Native Bluetooth not available (Are you on a mobile browser or APK?)");
-                return;
-            }
-            state.scanning = true;
-            document.getElementById('scan-btn').innerText = 'LISTING...';
-            
+        // BT Native
+        document.getElementById('scan-btn').onclick = () => {
+            if (!window.bluetoothSerial) { alert("Use APK for HC-05"); return; }
+            uiAction("Listing Paired...");
             window.bluetoothSerial.list((devices) => {
-                state.scanning = false;
-                document.getElementById('scan-btn').innerText = 'SCANNING';
                 const hc05 = devices.find(d => d.name && d.name.includes('HC-05'));
                 if (hc05) {
-                    uiAction("Connecting to " + hc05.name);
+                    uiAction("BT: Connecting to " + hc05.name);
                     window.bluetoothSerial.connect(hc05.id, () => {
                         state.connected = true;
-                        uiAction("LINK ESTABLISHED");
-                        alert("CONNECTED TO " + hc05.name);
-                    }, () => alert("Connection Failed"));
-                } else {
-                    alert("HC-05 not found in paired devices. Please pair it in Android settings first.");
-                }
-            }, (err) => alert("Scan error: " + err));
-        }
-
-        document.getElementById('scan-btn').onclick = () => {
-            if (window.bluetoothSerial) {
-                startNativeScan();
-            } else {
-                if (state.scanning) return; state.scanning = true;
-                document.getElementById('scan-btn').innerText = 'LINKING...';
-                setTimeout(() => { state.scanning = false; document.getElementById('scan-btn').innerText = 'SCANNING'; alert("SIMULATION: LINKED TO NC-MkIV"); }, 3000);
-            }
+                        uiAction("BT: CONNECTED OK");
+                        document.getElementById('bt-status').innerText = "Status: CONNECTED";
+                        document.getElementById('bt-status').className = "text-[10px] font-bold text-secondary uppercase";
+                    }, (err) => alert("Connect fail: " + err));
+                } else { alert("Pair HC-05 in Android Settings first!"); }
+            }, (err) => alert("List fail: " + err));
         };
 
-        function sendMove(cmd) {
-            uiAction('SEND:' + cmd);
-        }
-        // Telemetry
         setInterval(() => {
             state.power = Math.max(0, state.power - 0.005);
             const p = document.getElementById('vdata-pwr'); if (p) p.innerText = Math.round(state.power) + "%";
             const r = document.getElementById('vdata-prox'); if (r) r.innerText = (140 + Math.random()*5).toFixed(0) + "cm";
-            if (Math.random() > 0.95) {
-                const logs = ["[CALIBRATING]", "[SIGNAL_NOMINAL]", "[CMD_RX_0x4F]", "[KINETIC_FETCH]"];
-                const c = document.getElementById('diag-log'); if (c) {
-                    const d = document.createElement('div'); d.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString()}]</span> ${logs[Math.floor(Math.random()*logs.length)]}`;
-                    c.prepend(d); if (c.children.length > 20) c.removeChild(c.lastChild);
-                }
-            }
+            if (Math.random() > 0.98) uiAction("System nominal...");
         }, 1000);
     </script>
 </body>
