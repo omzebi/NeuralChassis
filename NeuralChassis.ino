@@ -40,17 +40,13 @@ long getDistance() {
 }
 
 // Función auxiliar para saber si hay obstáculo detrás (usando matriz IR)
+// Ahora que el sensor está calibrado (0 = objeto detectado), esto funciona.
+// Usamos solo los 3 sensores centrales (A1, A2, A3) para evitar falsas alarmas de los bordes.
 bool isObstacleBehind() {
-  // ATENCIÓN FÍSICA:
-  // Si usas el sensor TCRT5000 apuntando hacia ABAJO (al suelo) para seguir líneas,
-  // el sensor va a creer que el suelo es un "obstáculo" constantemente (estado 0).
-  // Por lo tanto, nunca te dejaría dar marcha atrás. 
-  // Usa esta función SOLO si pusiste el sensor mirando al aire en la parte trasera.
-  
-  for(int i=0; i<5; i++) {
-    // Algunos sensores dan 1 al detectar pared negra o vacio, y 0 al detectar pared blanca o suelo
+  // Si cualquiera de los 3 sensores centrales detecta algo muy cerca -> parar
+  for(int i=1; i<=3; i++) {
     if(digitalRead(IR_PINS[i]) == 0) {
-      return true; // Hay algo pegado
+      return true;
     }
   }
   return false;
@@ -59,15 +55,14 @@ bool isObstacleBehind() {
 void loop() {
   long currentDist = getDistance();
   
-  // HE DESACTIVADO EL BLOQUEO TRASERO TEMPORALMENTE (Cambiado a false en vez de isObstacleBehind)
-  // ¿Por qué? Porque si el sensor IR está apuntando al suelo, te bloqueaba todo el coche y Avoidance.
-  bool objBehind = false; // <-- Pon esto a isObstacleBehind() SOLO SI APUNTAN HACIA ATRÁS (y no al suelo)
+  // Seguridad DELANTE: ultrasónico
+  // Seguridad DETRÁS: sensor IR trasero (calibrado, 0=obstáculo)
+  bool objBehind = isObstacleBehind();
 
-  // Seguridad en modo Manual
+  // Frenado de seguridad en modo Manual
   if (currentMode == 'M') {
-    if (currentDist < 15) {
-      stopMotors();
-    }
+    if (currentDist < 15) stopMotors();   // Para si hay pared delante
+    if (objBehind) stopMotors();          // Para si hay pared detrás
   }
 
   // Lectura Bluetooth
