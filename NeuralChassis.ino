@@ -14,9 +14,9 @@ int baseSpeed = 170; // Velocidad ajustada para mejor control
 
 // --- CONFIGURACIÓN DE DIRECCIÓN DE MOTORES ---
 // Si al intentar ir recto el coche gira sobre sí mismo, uno de los lados está cambiado.
-// Por tu último reporte, he invertido el MOTOR B. Si sigue yendo mal, cambia estos valores.
-const bool INVERTIR_MOTOR_A = false; // Lado izquierdo de las ruedas
-const bool INVERTIR_MOTOR_B = true;  // Lado derecho de las ruedas (Puesto en true para probar)
+// Hemos sincronizado los motores, pero estaban yendo hacia atrás. Ahora invertimos ambos.
+const bool INVERTIR_MOTOR_A = true;  // Estaba en false -> cambiado a true
+const bool INVERTIR_MOTOR_B = false; // Estaba en true -> cambiado a false
 
 void setup() {
   Serial.begin(9600);
