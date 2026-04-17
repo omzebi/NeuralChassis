@@ -173,10 +173,23 @@ void modeLineFollower() {
   int s[5];
   for(int i=0; i<5; i++) s[i] = digitalRead(IR_PINS[i]);
   
-  if (s[2] == 1) moveForward();
-  else if (s[0] == 1 || s[1] == 1) turnLeft();
-  else if (s[3] == 1 || s[4] == 1) turnRight();
-  else stopMotors(); // Sin línea o en blanco/negro total
+  // TCRT5000 da 0 (LOW) al detectar linea negra, y 1 (HIGH) al ver suelo blanco.
+  // Orden de pines de IZQUIERDA a DERECHA: A0=s[0], A1=s[1], A2=s[2](centro), A3=s[3], A4=s[4]
+  // Si girar izquierda/derecha está al revés, intercambia los bloques de s[0]/s[1] con s[3]/s[4].
+  
+  if (s[2] == 0) {
+    // Linea en el centro -> ir recto
+    moveForward();
+  } else if (s[0] == 0 || s[1] == 0) {
+    // Linea a la izquierda -> girar izquierda
+    turnLeft();
+  } else if (s[3] == 0 || s[4] == 0) {
+    // Linea a la derecha -> girar derecha
+    turnRight();
+  } else {
+    // Sin linea: parar (puedes cambiar a moveForward() si prefieres que siga recto cuando pierde)
+    stopMotors();
+  }
 }
 
 void sendTelemetry(long d) {
