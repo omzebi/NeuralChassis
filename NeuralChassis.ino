@@ -174,20 +174,20 @@ void modeLineFollower() {
   for(int i=0; i<5; i++) s[i] = digitalRead(IR_PINS[i]);
   
   // TCRT5000 da 0 (LOW) al detectar linea negra, y 1 (HIGH) al ver suelo blanco.
-  // Orden de pines de IZQUIERDA a DERECHA: A0=s[0], A1=s[1], A2=s[2](centro), A3=s[3], A4=s[4]
-  // Si girar izquierda/derecha está al revés, intercambia los bloques de s[0]/s[1] con s[3]/s[4].
+  // SENSOR MONTADO EN LA PARTE TRASERA: el coche va hacia atras para seguir la linea.
+  // Los giros estan invertidos porque la perspectiva del sensor es opuesta.
   
   if (s[2] == 0) {
-    // Linea en el centro -> ir recto
-    moveForward();
+    // Linea en el centro -> ir atras (sensor trasero)
+    moveBackward();
   } else if (s[0] == 0 || s[1] == 0) {
-    // Linea a la izquierda -> girar izquierda
-    turnLeft();
-  } else if (s[3] == 0 || s[4] == 0) {
-    // Linea a la derecha -> girar derecha
+    // Linea a la izquierda del sensor -> girar DERECHA (invertido por sensor trasero)
     turnRight();
+  } else if (s[3] == 0 || s[4] == 0) {
+    // Linea a la derecha del sensor -> girar IZQUIERDA (invertido por sensor trasero)
+    turnLeft();
   } else {
-    // Sin linea: parar (puedes cambiar a moveForward() si prefieres que siga recto cuando pierde)
+    // Sin linea: parar
     stopMotors();
   }
 }
