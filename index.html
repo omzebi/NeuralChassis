@@ -290,20 +290,25 @@
             if (window.plugins && window.plugins.speechRecognition) {
                 const sr = window.plugins.speechRecognition;
                 
-                // Saltamos la comprobación isRecognitionAvailable porque algunos móviles (Xiaomi, Oppo, etc.) 
-                // dicen que no lo tienen cuando en realidad sí usan su propio motor interno.
-                
-                sr.hasPermission(function(isGranted) {
-                    if (isGranted) {
-                        listenNativeVoice(sr);
-                    } else {
-                        sr.requestPermission(function() {
-                            listenNativeVoice(sr);
-                        }, function() {
-                            alert("Permiso de micrófono denegado.");
-                        });
+                sr.isRecognitionAvailable(function(available) {
+                    if (!available) { 
+                        alert("Por favor instala o habilita la App de Google. El motor de voz no es visible."); 
+                        return; 
                     }
-                }, function() { alert("Error verificando permisos."); });
+                    
+                    sr.hasPermission(function(isGranted) {
+                        if (isGranted) {
+                            listenNativeVoice(sr);
+                        } else {
+                            sr.requestPermission(function() {
+                                listenNativeVoice(sr);
+                            }, function() {
+                                alert("Permiso de micrófono denegado.");
+                            });
+                        }
+                    }, function() { alert("Error verificando permisos."); });
+                }, function() { alert("Error al conectar con el servicio de voz."); });
+                
             } else {
                 alert("El plugin nativo de voz no está cargado. (Asegúrate de tener internet al compilar o usar el APK).");
             }
