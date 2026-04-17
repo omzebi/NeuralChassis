@@ -83,8 +83,12 @@
                     <span class="text-[10px] uppercase tracking-widest opacity-50">Velocity</span>
                     <h2 class="text-6xl font-headline font-bold text-primary mt-2" id="vpilot-speed">0.0</h2>
                 </div>
-                <div class="relative w-80 h-80 rounded-full border border-white/10 flex items-center justify-center bg-white/5 shadow-inner">
-                    <div id="joystick-handle" class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary-container shadow-2xl flex items-center justify-center cursor-pointer touch-none">
+                <div class="relative w-80 h-80 rounded-full border border-white/10 flex items-center justify-center bg-white/5 shadow-inner overflow-hidden">
+                    <!-- CAMERA FEED -->
+                    <img id="cam-feed" src="" class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-1000" alt="Video Stream" />
+                    <div class="absolute inset-0 bg-surface/20 pointer-events-none"></div> <!-- Overlay for contrast -->
+
+                    <div id="joystick-handle" class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary-container shadow-2xl flex items-center justify-center cursor-pointer touch-none z-10 relative">
                         <div class="w-16 h-16 rounded-full bg-surface border border-white/10 flex items-center justify-center">
                             <svg class="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
                         </div>
@@ -135,7 +139,7 @@
                     <p class="text-[10px] opacity-60 mb-10 tracking-widest uppercase">Select Link Method</p>
                     <div class="flex gap-4 w-full" id="link-methods">
                         <button onclick="setLink('bt', this)" class="flex-1 glass py-5 rounded-2xl border-primary bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-widest active:scale-95 transition-all">Bluetooth</button>
-                        <button onclick="setLink('wifi', this)" class="flex-1 glass py-5 rounded-2xl opacity-40 font-bold text-[10px] uppercase tracking-widest active:scale-95 transition-all">WiFi</button>
+                        <button onclick="setLink('wifi', this)" class="flex-1 glass py-5 rounded-2xl font-bold text-[10px] text-secondary border-secondary/50 uppercase tracking-widest active:scale-95 transition-all">ESP32-CAM</button>
                     </div>
                     <button id="scan-btn" class="mt-8 bg-gradient-to-br from-primary to-primary-container text-surface w-full font-headline font-bold py-5 rounded-2xl shadow-2xl active:scale-95 transition-all tracking-[0.2em] text-xs">SCANNING</button>
                 </div>
@@ -182,8 +186,32 @@
         function sendMove(cmd) { uiAction('BT_SEND:' + cmd); }
 
         function setLink(method, btn) {
-            document.querySelectorAll('#link-methods button').forEach(b => b.classList.add('opacity-40'));
-            btn.classList.remove('opacity-40'); uiAction("Mode: " + method.toUpperCase());
+            document.querySelectorAll('#link-methods button').forEach(b => {
+                b.classList.remove('bg-primary/10', 'bg-secondary/10');
+            });
+            
+            if(method === 'bt') {
+                btn.classList.add('bg-primary/10');
+                uiAction("Mode: BLUETOOTH HC-05");
+            } else if (method === 'wifi') {
+                btn.classList.add('bg-secondary/10');
+                const ip = prompt("Introduce la IP del ESP32-CAM (ejemplo: 192.168.1.100)", localStorage.getItem("esp32_ip") || "192.168.1.");
+                if(ip && ip.trim() !== "") {
+                    localStorage.setItem("esp32_ip", ip.trim());
+                    // El servidor stream de la mayoría de EJEMPLOS de ESP32-CAM corre en el puerto 81
+                    const streamUrl = `http://${ip.trim()}:81/stream`;
+                    
+                    const camFeed = document.getElementById('cam-feed');
+                    camFeed.src = streamUrl;
+                    camFeed.onload = () => { camFeed.classList.remove('opacity-0'); uiAction("CAMERA FEED: ESTABLECIDO!"); };
+                    camFeed.onerror = () => { alert("No se pudo conectar al ESP32-CAM. Revisa la IP y asegúrate de estar en el mismo WiFi."); };
+                    
+                    uiAction("Conectando Stream Wi-Fi... IP: " + ip);
+                    document.getElementById('bt-status').innerText = "Status: CAMERA STREAM ACTIVE";
+                    document.getElementById('bt-status').className = "text-[10px] font-bold text-secondary uppercase";
+                    nav('pilot'); // ¡Lleva al piloto automáticamente para ver la vista!
+                }
+            }
         }
 
         function emergencyStop() { state.speed = 0; document.getElementById('vpilot-speed').innerText = "0.0"; sendMove('S'); alert("STOP"); }
