@@ -85,8 +85,8 @@
                 </div>
                 <div class="relative w-80 h-80 rounded-full border border-white/10 flex items-center justify-center bg-white/5 shadow-inner overflow-hidden">
                     <!-- CAMERA FEED -->
-                    <img id="cam-feed" src="" class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-1000" alt="Video Stream" />
-                    <div class="absolute inset-0 bg-surface/20 pointer-events-none"></div> <!-- Overlay for contrast -->
+                    <img id="cam-feed" src="" class="absolute inset-0 w-full h-full object-cover opacity-0" style="transition: opacity 1s;" alt="Video Stream" />
+                    <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(ellipse at center, transparent 55%, #10141a 100%);"></div> <!-- Vignette overlay -->
 
                     <div id="joystick-handle" class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary-container shadow-2xl flex items-center justify-center cursor-pointer touch-none z-10 relative">
                         <div class="w-16 h-16 rounded-full bg-surface border border-white/10 flex items-center justify-center">
@@ -203,8 +203,8 @@
                     
                     const camFeed = document.getElementById('cam-feed');
                     camFeed.src = streamUrl;
-                    camFeed.onload = () => { camFeed.classList.remove('opacity-0'); uiAction("CAMERA FEED: ESTABLECIDO!"); };
-                    camFeed.onerror = () => { alert("No se pudo conectar al ESP32-CAM. Revisa la IP y asegúrate de estar en el mismo WiFi."); };
+                    // Los streams MJPEG nunca disparan 'onload'. Lo mostramos directamente.
+                    setTimeout(() => { camFeed.style.opacity = '1'; }, 800);
                     
                     uiAction("Conectando Stream Wi-Fi... IP: " + ip);
                     document.getElementById('bt-status').innerText = "Status: CAMERA STREAM ACTIVE";
