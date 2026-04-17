@@ -99,7 +99,12 @@
                         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64L5.64 19.36M5.64 6.64l12.72 12.72"/></svg>
                         <span class="text-[10px] font-bold uppercase tracking-widest">E-Stop</span>
                     </button>
-                    <button onclick="sendMove('F')" class="col-span-2 glass p-3 rounded-xl text-[10px] uppercase font-bold opacity-30">Test Forward ('F')</button>
+                    <button id="app-mic-btn" onclick="startAppVoice()" class="col-span-2 glass p-4 rounded-xl flex flex-col items-center gap-2 border-primary/30 text-primary active:scale-95 transition-all">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+                        </svg>
+                        <span id="app-mic-text" class="text-[10px] uppercase font-bold tracking-widest">App Voice Control</span>
+                    </button>
                 </div>
             </div>
         </section>
@@ -279,6 +284,44 @@
             state.power = Math.max(0, state.power - 0.001);
             const p = document.getElementById('vdata-pwr'); if (p) p.innerText = Math.round(state.power) + "%";
         }, 500);
+
+        // Web Speech API for App Voice Control
+        let appVoiceRec;
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            appVoiceRec = new SpeechRec();
+            appVoiceRec.lang = 'en-US'; // Mapeado tanto a inglés como español
+            appVoiceRec.continuous = false;
+            appVoiceRec.interimResults = false;
+
+            appVoiceRec.onstart = () => {
+                document.getElementById('app-mic-btn').classList.add('bg-primary/20');
+                document.getElementById('app-mic-text').innerText = "ESCUCHANDO...";
+                uiAction("MIC: Listening...");
+            };
+            appVoiceRec.onresult = (evt) => {
+                const text = evt.results[0][0].transcript.toLowerCase();
+                uiAction("APP VOZ: " + text);
+                if(text.includes("forward") || text.includes("go") || text.includes("avanza")) sendMove('F');
+                else if(text.includes("back") || text.includes("atrás") || text.includes("atra")) sendMove('B');
+                else if(text.includes("left") || text.includes("izquierda")) sendMove('L');
+                else if(text.includes("right") || text.includes("derecha")) sendMove('R');
+                else if(text.includes("stop") || text.includes("para") || text.includes("alto")) sendMove('S');
+                else if(text.includes("around") || text.includes("vuelta")) { sendMove(Math.random() > 0.5 ? '6' : '7'); }
+            };
+            appVoiceRec.onend = () => {
+                document.getElementById('app-mic-btn').classList.remove('bg-primary/20');
+                document.getElementById('app-mic-text').innerText = "App Voice Control";
+            };
+        }
+
+        function startAppVoice() {
+            if(appVoiceRec) {
+                appVoiceRec.start();
+            } else {
+                alert("Tu navegador (o Android WebView) no soporta reconocimiento de voz nativo.");
+            }
+        }
     </script>
 </body>
 </html>
