@@ -10,6 +10,7 @@ const int FC51_LEFT  = 4;  // Sensor izquierdo
 const int FC51_RIGHT = 2;  // Sensor derecho
 
 char currentMode = 'M';
+char lastDir = 'S'; // Rastrea la ultima direccion enviada
 int baseSpeed = 170;
 
 // --- CONFIGURACIÓN DE DIRECCIÓN DE MOTORES ---
@@ -53,9 +54,16 @@ void loop() {
   bool bRight = obstacleRight();
   bool objBehind = bLeft || bRight;
 
-  // Frenado de emergencia SOLO en modo Avoidance automatico.
-  // En modo Manual, la seguridad se gestiona en processCommand (bloquea el comando, no para el motor).
-  // Esto evita que el loop() cancele a cada ciclo lo que el joystick está pidiendo.
+  // SEGURIDAD INTELIGENTE: para el motor solo si se mueve en la dirección del peligro.
+  // Así no cancela el joystick en cada ciclo, solo cuando hay colisión real.
+  if (currentMode == 'M') {
+    if (lastDir == 'F' && currentDist > 0 && currentDist < 12) {
+      stopMotors(); lastDir = 'S'; // Frena si va adelante y hay pared cercana
+    }
+    if (lastDir == 'B' && objBehind) {
+      stopMotors(); lastDir = 'S'; // Frena si va atras y FC-51 detecta pared
+    }
+  }
 
   // Lectura Bluetooth
   if (Serial.available()) {
@@ -76,15 +84,15 @@ void loop() {
 }
 
 void processCommand(char c, long currentDist, bool objBehind) {
-  // Bloqueos de seguridad
-  if (currentDist < 15 && c == 'F') return;  // No ir adelante si hay pared
-  if (objBehind      && c == 'B') return;     // No ir atrás si hay obstáculo
+  // Bloqueo DELANTE: no avanzar si hay pared (el joystick sigue mandando 'F' continuamente)
+  if (currentDist > 0 && currentDist < 12 && c == 'F') return;
+  // Nota: 'B' (marcha atrás) se permite siempre en manual. La seguridad trasera actua en el loop().
 
-  if      (c == 'F') moveForward();
-  else if (c == 'B') moveBackward();
-  else if (c == 'L') turnLeft();
-  else if (c == 'R') turnRight();
-  else if (c == 'S') { currentMode = 'M'; stopMotors(); }
+  if      (c == 'F') { moveForward();  lastDir = 'F'; }
+  else if (c == 'B') { moveBackward(); lastDir = 'B'; }
+  else if (c == 'L') { turnLeft();     lastDir = 'L'; }
+  else if (c == 'R') { turnRight();    lastDir = 'R'; }
+  else if (c == 'S') { stopMotors();  lastDir = 'S'; currentMode = 'M'; }
   else if (c == 'A') { currentMode = 'A'; }
   else if (c == 'X') { currentMode = 'X'; }
 }
