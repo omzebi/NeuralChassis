@@ -290,25 +290,22 @@
             if (window.plugins && window.plugins.speechRecognition) {
                 const sr = window.plugins.speechRecognition;
                 
-                // 1. Validate if available
-                sr.isRecognitionAvailable(function(available) {
-                    if (!available) { alert("Tu dispositivo no tiene motor de reconocimiento de voz de Google."); return; }
-                    
-                    // 2. Check Permissions
-                    sr.hasPermission(function(isGranted) {
-                        if (isGranted) {
+                // Saltamos la comprobación isRecognitionAvailable porque algunos móviles (Xiaomi, Oppo, etc.) 
+                // dicen que no lo tienen cuando en realidad sí usan su propio motor interno.
+                
+                sr.hasPermission(function(isGranted) {
+                    if (isGranted) {
+                        listenNativeVoice(sr);
+                    } else {
+                        sr.requestPermission(function() {
                             listenNativeVoice(sr);
-                        } else {
-                            sr.requestPermission(function() {
-                                listenNativeVoice(sr);
-                            }, function() {
-                                alert("Permiso de micrófono denegado.");
-                            });
-                        }
-                    }, function() { alert("Error verificando permisos."); });
-                }, function() { alert("Error verificando disponibilidad de voz."); });
+                        }, function() {
+                            alert("Permiso de micrófono denegado.");
+                        });
+                    }
+                }, function() { alert("Error verificando permisos."); });
             } else {
-                alert("El plugin nativo de voz no está cargado. (Debes usar el APK).");
+                alert("El plugin nativo de voz no está cargado. (Asegúrate de tener internet al compilar o usar el APK).");
             }
         }
 
