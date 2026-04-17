@@ -33,21 +33,35 @@ long getDistance() {
   return duration * 0.034 / 2;
 }
 
+// Función auxiliar para saber si hay obstáculo detrás (usando matriz IR)
+bool isObstacleBehind() {
+  // OJO: Los TCRT5000 suelen dar LOW (0) al detectar obstáculo.
+  // Si tu sensor funciona al revés (detecta con 1), cambia esto a "== 1"
+  for(int i=0; i<5; i++) {
+    if(digitalRead(IR_PINS[i]) == 0) {
+      return true; // Hay algo pegado atrás
+    }
+  }
+  return false;
+}
+
 void loop() {
   long currentDist = getDistance();
+  bool objBehind = isObstacleBehind();
 
-  // Seguridad en modo Manual: Si hay obstáculo < 15cm y no estamos yendo atrás, frenar.
-  if (currentMode == 'M' && currentDist < 15) {
-    // Solo frenamos si el sensor detecta algo muy cerca
-    // Esto previene choques en modo manual
-    digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
-    digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+  // Seguridad en modo Manual
+  if (currentMode == 'M') {
+    // Si frena de frente
+    if (currentDist < 15) {
+      digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
+      digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+    }
   }
 
   // Lectura Bluetooth
   if (Serial.available()) {
     char cmd = Serial.read();
-    processCommand(cmd, currentDist);
+    processCommand(cmd, currentDist, objBehind);
   }
   
   // Lectura Voz
@@ -55,11 +69,11 @@ void loop() {
     char vCmd = voiceModule.read();
     Serial.print("BT:VOICE_INDEX:");
     Serial.println((int)vCmd);
-    processCommand(vCmd, currentDist);
+    processCommand(vCmd, currentDist, objBehind);
   }
 
   // Ejecución de Modos
-  if (currentMode == 'A') modeAvoidance(currentDist);
+  if (currentMode == 'A') modeAvoidance(currentDist, objBehind);
   else if (currentMode == 'X') modeLineFollower();
 
   // Telemetría
@@ -70,9 +84,10 @@ void loop() {
   }
 }
 
-void processCommand(char c, long d) {
-  // No avanzar si hay obstáculo
-  if (d < 15 && (c == 'F' || c == 1)) return;
+void processCommand(char c, long currentDist, bool objBehind) {
+  // BLOQUEO DE SEGURIDAD
+  if (currentDist < 15 && (c == 'F' || c == 1)) return; // No ir adelante si hay pared
+  if (objBehind && (c == 'B' || c == 2)) return;      // No ir atrás si hay pared (IR)
 
   if (c == 'F' || c == 1) moveForward();
   else if (c == 'B' || c == 2) moveBackward();
@@ -106,12 +121,20 @@ void stopMotors() {
   digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
 }
 
-void modeAvoidance(long d) {
+void modeAvoidance(long d, bool objBehind) {
   if (d < 25 && d > 0) {
     stopMotors();
     delay(100);
-    moveBackward(); delay(300);
-    turnRight();    delay(450);
+    
+    // Si hay que esquivar un obstáculo de frente, 
+    // solo retrocede si NO hay un obstáculo detrás (IR libres)
+    if (!objBehind) {
+      moveBackward(); 
+      delay(300);
+    }
+    
+    turnRight();    
+    delay(450);
     stopMotors();
     delay(100);
   } else {
