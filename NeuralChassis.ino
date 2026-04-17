@@ -11,9 +11,12 @@ char currentMode = 'M';
 char currentMoveState = 'S'; 
 int baseSpeed = 160; 
 
-// --- VARIABLES PARA SEGUIDOR DE LÍNEA ---
-// Cámbialo a 0 si tu pista negra no funciona con 1
+// --- CONFIGURACIÓN DE SENSORES Y LÓGICA ---
+// Seguidor LÍNEA: Cámbialo a 0 si tu pista negra no funciona con 1
 const int LINE_VALUE = 1; 
+
+// Freno TRASERO: Si el coche NO FRENA al hacer marcha atrás contra un muro, cámbialo a 1
+const int OBSTACLE_VALUE = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -31,16 +34,15 @@ long getDistance() {
   digitalWrite(TRIG, LOW); delayMicroseconds(2);
   digitalWrite(TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
-  long duration = pulseIn(ECHO, HIGH, 30000); // 30ms timeout (aprox 5 metros)
+  long duration = pulseIn(ECHO, HIGH, 30000); // 30ms timeout 
   if (duration == 0) return 999;
   return duration * 0.034 / 2;
 }
 
-// Devuelve TRUE si cualquiera de los 5 sensores traseros ve un obstáculo
 bool isObstacleBehind() {
   for(int i=0; i<5; i++) {
-    // 0 = Hay obstáculo (luz infrarroja rebota)
-    if(digitalRead(IR_PINS[i]) == 0) return true; 
+    // Compara el sensor con tu configuracion de obstaculo
+    if(digitalRead(IR_PINS[i]) == OBSTACLE_VALUE) return true; 
   }
   return false;
 }
@@ -49,21 +51,19 @@ void loop() {
   long currentDist = getDistance();
   bool rearObstacle = isObstacleBehind();
 
-  // Freno dinámico de seguridad absoluta por lectura de Motor (Hardware check)
+  // Freno dinámico en Pilot por Software (El más seguro)
   if (currentMode == 'M') {
-    // Si algún motor está yendo Hacia Adelante (IN1 o IN3 en HIGH) y hay muro delante:
-    if ((digitalRead(IN1) == HIGH || digitalRead(IN3) == HIGH) && currentDist < 15 && currentDist > 0) {
+    if (currentMoveState == 'F' && currentDist < 15 && currentDist > 0) {
       stopMotors();
       currentMoveState = 'S';
     }
-    // Si algún motor está yendo Hacia Atrás (IN2 o IN4 en HIGH) y hay muro detrás:
-    if ((digitalRead(IN2) == HIGH || digitalRead(IN4) == HIGH) && rearObstacle) {
+    if (currentMoveState == 'B' && rearObstacle) {
       stopMotors();
       currentMoveState = 'S';
     }
   }
 
-  // Comandos Bluetooth y Voz
+  // Lectura Bluetooth y Comandos Voz
   if (Serial.available()) processCommand(Serial.read(), currentDist, rearObstacle);
   if (voiceModule.available()) {
     char vCmd = voiceModule.read();
@@ -71,9 +71,11 @@ void loop() {
     processCommand(vCmd, currentDist, rearObstacle);
   }
 
+  // Modos Automáticos
   if (currentMode == 'A') modeAvoidance(currentDist);
   else if (currentMode == 'X') modeLineFollower();
 
+  // Telemetría
   static unsigned long lastUpdate = 0;
   if (millis() - lastUpdate > 500) {
     sendTelemetry(currentDist);
@@ -82,8 +84,8 @@ void loop() {
 }
 
 void processCommand(char c, long d, bool rearObstacle) {
-  if (d < 15 && (c == 'F' || c == 1)) return; // Freno seguridad adelante
-  if (rearObstacle && (c == 'B' || c == 2)) return; // Freno seguridad ATRÁS (IR trasero)
+  if (d < 15 && (c == 'F' || c == 1)) return; // Bloqueo si hay obstáculo delante
+  if (rearObstacle && (c == 'B' || c == 2)) return; // Bloqueo si hay obstáculo detrás
 
   if (c == 'F' || c == 1) { moveForward(); currentMoveState = 'F'; }
   else if (c == 'B' || c == 2) { moveBackward(); currentMoveState = 'B'; }
@@ -120,8 +122,8 @@ void stopMotors() {
 void modeAvoidance(long d) {
   if (d < 25 && d > 0) {
     stopMotors(); delay(150);
-    moveBackward(); delay(400);  // Retroceso vital para no quedarse atascado girando
-    turnRight(); delay(500);     // Giro fuerte después de retroceder
+    moveBackward(); delay(400); 
+    turnRight(); delay(500); 
     stopMotors(); delay(100);
   } else {
     moveForward();
@@ -133,8 +135,8 @@ void modeLineFollower() {
   for(int i=0; i<5; i++) s[i] = digitalRead(IR_PINS[i]);
   
   if (s[2] == LINE_VALUE) moveForward();
-  else if (s[0] == LINE_VALUE || s[1] == LINE_VALUE) turnLeft(); // Corrección rápida izquierda
-  else if (s[3] == LINE_VALUE || s[4] == LINE_VALUE) turnRight(); // Corrección rápida derecha
+  else if (s[0] == LINE_VALUE || s[1] == LINE_VALUE) turnLeft(); 
+  else if (s[3] == LINE_VALUE || s[4] == LINE_VALUE) turnRight(); 
   else stopMotors();
 }
 
