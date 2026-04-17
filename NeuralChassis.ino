@@ -6,8 +6,8 @@ const int ENB = 11; const int IN3 = 9;  const int IN4 = 10;
 const int TRIG = 13; const int ECHO = 12;
 const int IR_PINS[] = {A0, A1, A2, A3, A4};
 
-// Módulo de Voz VC-02 (D2=RX, D3=TX)
-SoftwareSerial voiceModule(2, 3); 
+// Módulo de Voz VC-02 (RX: Pin 4 <- TX Módulo, TX: Pin 2 -> RX Módulo)
+SoftwareSerial voiceModule(4, 2); 
 
 char currentMode = 'M'; 
 int baseSpeed = 180;
@@ -31,14 +31,11 @@ void loop() {
     processCommand(cmd);
   }
   
-  // Voice Command Sniffer
+  // Voice Command Sniffer (Debug en App)
   if (voiceModule.available()) {
     char vCmd = voiceModule.read();
-    
-    // Enviar a la App para debug
     Serial.print("BT:VOICE_CMD:");
     Serial.println(vCmd);
-    
     processCommand(vCmd);
   }
 
