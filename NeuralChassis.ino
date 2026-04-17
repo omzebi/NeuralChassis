@@ -31,11 +31,14 @@ void loop() {
     processCommand(cmd);
   }
   
-  // Voice Command Sniffer (Debug en App)
+  // Voice Command (Mapeo por Índices 1-9)
   if (voiceModule.available()) {
     char vCmd = voiceModule.read();
-    Serial.print("BT:VOICE_CMD:");
-    Serial.println(vCmd);
+    
+    // Debug en la App
+    Serial.print("BT:VOICE_INDEX:");
+    Serial.println((int)vCmd);
+    
     processCommand(vCmd);
   }
 
@@ -50,11 +53,14 @@ void loop() {
 }
 
 void processCommand(char c) {
-  if (c == 'F') moveForward();
-  else if (c == 'B') moveBackward();
-  else if (c == 'L') turnLeft();
-  else if (c == 'R') turnRight();
-  else if (c == 'S') { currentMode = 'M'; stopMotors(); }
+  // Mapeo mixto: Letras (App) e Índices (Voz)
+  if (c == 'F' || c == 1) moveForward();
+  else if (c == 'B' || c == 2) moveBackward();
+  else if (c == 'L' || c == 3) turnLeft();
+  else if (c == 'R' || c == 4) turnRight();
+  else if (c == 'S' || c == 5) { currentMode = 'M'; stopMotors(); }
+  else if (c == 6) { turnRight(); delay(600); stopMotors(); } // Turn Around
+  else if (c == 7) { turnLeft(); delay(600); stopMotors(); }  // Turn Around
   else if (c == 'A') { currentMode = 'A'; }
   else if (c == 'X') { currentMode = 'X'; }
 }
@@ -87,7 +93,7 @@ void modeAvoidance() {
   digitalWrite(TRIG, LOW);
   duration = pulseIn(ECHO, HIGH);
   distance = duration * 0.034 / 2;
-  if (distance < 20 && distance > 0) { turnRight(); delay(300); stopMotors(); }
+  if (distance < 25 && distance > 0) { turnRight(); delay(300); stopMotors(); }
   else moveForward();
 }
 
