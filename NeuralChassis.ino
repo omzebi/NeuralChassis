@@ -25,9 +25,9 @@ void setup() {
   pinMode(TRIG, OUTPUT); pinMode(ECHO, INPUT);
   for(int i=0; i<5; i++) pinMode(IR_PINS[i], INPUT);
 
-  // FC-51 Obstacle sensors
-  pinMode(FC51_LEFT,  INPUT);
-  pinMode(FC51_RIGHT, INPUT);
+  // FC-51 con INPUT_PULLUP para evitar lecturas flotantes
+  pinMode(FC51_LEFT,  INPUT_PULLUP);
+  pinMode(FC51_RIGHT, INPUT_PULLUP);
 
   stopMotors();
   Serial.println("Neural Chassis Ready!");
@@ -53,11 +53,9 @@ void loop() {
   bool bRight = obstacleRight();
   bool objBehind = bLeft || bRight;
 
-  // Frenado de emergencia en modo Manual
-  if (currentMode == 'M') {
-    if (currentDist < 15) stopMotors(); // Pared delante (ultrasónico)
-    if (objBehind) stopMotors();       // Pared detrás (FC-51)
-  }
+  // Frenado de emergencia SOLO en modo Avoidance automatico.
+  // En modo Manual, la seguridad se gestiona en processCommand (bloquea el comando, no para el motor).
+  // Esto evita que el loop() cancele a cada ciclo lo que el joystick está pidiendo.
 
   // Lectura Bluetooth
   if (Serial.available()) {
