@@ -5,18 +5,18 @@ const int ENA = 3;  const int IN1 = 5;  const int IN2 = 6;
 const int ENB = 11; const int IN3 = 9;  const int IN4 = 10;
 const int TRIG = 13; const int ECHO = 12;
 const int IR_PINS[] = {A0, A1, A2, A3, A4};
+
+// Módulo de Voz VC-02
 SoftwareSerial voiceModule(4, 2); 
 
 char currentMode = 'M'; 
-char currentMoveState = 'S'; 
-int baseSpeed = 160; 
+int baseSpeed = 170; // Velocidad ajustada para mejor control
 
-// --- CONFIGURACIÓN DE SENSORES Y LÓGICA ---
-// Seguidor LÍNEA: Cámbialo a 0 si tu pista negra no funciona con 1
-const int LINE_VALUE = 1; 
-
-// Freno TRASERO: Si el coche NO FRENA al hacer marcha atrás contra un muro, cámbialo a 1
-const int OBSTACLE_VALUE = 0;
+// --- CONFIGURACIÓN DE DIRECCIÓN DE MOTORES ---
+// Si al intentar ir recto el coche gira sobre sí mismo, uno de los lados está cambiado.
+// Por tu último reporte, he invertido el MOTOR B. Si sigue yendo mal, cambia estos valores.
+const bool INVERTIR_MOTOR_A = false; // Lado izquierdo de las ruedas
+const bool INVERTIR_MOTOR_B = true;  // Lado derecho de las ruedas (Puesto en true para probar)
 
 void setup() {
   Serial.begin(9600);
@@ -34,45 +34,58 @@ long getDistance() {
   digitalWrite(TRIG, LOW); delayMicroseconds(2);
   digitalWrite(TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
-  long duration = pulseIn(ECHO, HIGH, 30000); // 30ms timeout 
+  long duration = pulseIn(ECHO, HIGH, 25000); // Timeout 25ms
   if (duration == 0) return 999;
   return duration * 0.034 / 2;
 }
 
+// Función auxiliar para saber si hay obstáculo detrás (usando matriz IR)
 bool isObstacleBehind() {
+  // ATENCIÓN FÍSICA:
+  // Si usas el sensor TCRT5000 apuntando hacia ABAJO (al suelo) para seguir líneas,
+  // el sensor va a creer que el suelo es un "obstáculo" constantemente (estado 0).
+  // Por lo tanto, nunca te dejaría dar marcha atrás. 
+  // Usa esta función SOLO si pusiste el sensor mirando al aire en la parte trasera.
+  
   for(int i=0; i<5; i++) {
-    // Compara el sensor con tu configuracion de obstaculo
-    if(digitalRead(IR_PINS[i]) == OBSTACLE_VALUE) return true; 
+    // Algunos sensores dan 1 al detectar pared negra o vacio, y 0 al detectar pared blanca o suelo
+    if(digitalRead(IR_PINS[i]) == 0) {
+      return true; // Hay algo pegado
+    }
   }
   return false;
 }
 
 void loop() {
   long currentDist = getDistance();
-  bool rearObstacle = isObstacleBehind();
+  
+  // HE DESACTIVADO EL BLOQUEO TRASERO TEMPORALMENTE (Cambiado a false en vez de isObstacleBehind)
+  // ¿Por qué? Porque si el sensor IR está apuntando al suelo, te bloqueaba todo el coche y Avoidance.
+  bool objBehind = false; // <-- Pon esto a isObstacleBehind() SOLO SI APUNTAN HACIA ATRÁS (y no al suelo)
 
-  // Freno dinámico en Pilot por Software (El más seguro)
+  // Seguridad en modo Manual
   if (currentMode == 'M') {
-    if (currentMoveState == 'F' && currentDist < 15 && currentDist > 0) {
+    if (currentDist < 15) {
       stopMotors();
-      currentMoveState = 'S';
-    }
-    if (currentMoveState == 'B' && rearObstacle) {
-      stopMotors();
-      currentMoveState = 'S';
     }
   }
 
-  // Lectura Bluetooth y Comandos Voz
-  if (Serial.available()) processCommand(Serial.read(), currentDist, rearObstacle);
+  // Lectura Bluetooth
+  if (Serial.available()) {
+    char cmd = Serial.read();
+    processCommand(cmd, currentDist, objBehind);
+  }
+  
+  // Lectura Voz
   if (voiceModule.available()) {
     char vCmd = voiceModule.read();
-    Serial.print("BT:VOICE_INDEX:"); Serial.println((int)vCmd);
-    processCommand(vCmd, currentDist, rearObstacle);
+    Serial.print("BT:VOICE_INDEX:");
+    Serial.println((int)vCmd);
+    processCommand(vCmd, currentDist, objBehind);
   }
 
-  // Modos Automáticos
-  if (currentMode == 'A') modeAvoidance(currentDist);
+  // Ejecución de Modos
+  if (currentMode == 'A') modeAvoidance(currentDist, objBehind);
   else if (currentMode == 'X') modeLineFollower();
 
   // Telemetría
@@ -83,48 +96,74 @@ void loop() {
   }
 }
 
-void processCommand(char c, long d, bool rearObstacle) {
-  if (d < 15 && (c == 'F' || c == 1)) return; // Bloqueo si hay obstáculo delante
-  if (rearObstacle && (c == 'B' || c == 2)) return; // Bloqueo si hay obstáculo detrás
+void processCommand(char c, long currentDist, bool objBehind) {
+  // BLOQUEO DE SEGURIDAD
+  if (currentDist < 15 && (c == 'F' || c == 1)) return; // No ir adelante si hay pared
+  if (objBehind && (c == 'B' || c == 2)) return;      // No ir atrás si hay pared (IR)
 
-  if (c == 'F' || c == 1) { moveForward(); currentMoveState = 'F'; }
-  else if (c == 'B' || c == 2) { moveBackward(); currentMoveState = 'B'; }
-  else if (c == 'L' || c == 3) { turnLeft(); currentMoveState = 'L'; }
-  else if (c == 'R' || c == 4) { turnRight(); currentMoveState = 'R'; }
-  else if (c == 'S' || c == 5) { currentMode = 'M'; stopMotors(); currentMoveState = 'S'; }
-  else if (c == 6) { turnRight(); delay(600); stopMotors(); currentMoveState = 'S'; }
-  else if (c == 7) { turnLeft(); delay(600); stopMotors(); currentMoveState = 'S'; }
-  else if (c == 'A') { currentMode = 'A'; currentMoveState = 'S'; }
-  else if (c == 'X') { currentMode = 'X'; currentMoveState = 'S'; }
+  if (c == 'F' || c == 1) moveForward();
+  else if (c == 'B' || c == 2) moveBackward();
+  else if (c == 'L' || c == 3) turnLeft();
+  else if (c == 'R' || c == 4) turnRight();
+  else if (c == 'S' || c == 5) { currentMode = 'M'; stopMotors(); }
+  else if (c == 6) { turnRight(); delay(600); stopMotors(); }
+  else if (c == 7) { turnLeft(); delay(600); stopMotors(); }
+  else if (c == 'A') { currentMode = 'A'; }
+  else if (c == 'X') { currentMode = 'X'; }
 }
 
-void moveForward() {
-  analogWrite(ENA, baseSpeed); digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
-  analogWrite(ENB, baseSpeed); digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+// --- FUNCIONES DE MOTOR MODULARES (Permiten invertir fácilmente) ---
+void moveMotorA(int speed, bool forward) {
+  if (INVERTIR_MOTOR_A) forward = !forward;
+  analogWrite(ENA, speed);
+  digitalWrite(IN1, forward ? HIGH : LOW);
+  digitalWrite(IN2, forward ? LOW : HIGH);
 }
-void moveBackward() {
-  analogWrite(ENA, baseSpeed); digitalWrite(IN1, LOW); digitalWrite(IN2, HIGH);
-  analogWrite(ENB, baseSpeed); digitalWrite(IN3, LOW); digitalWrite(IN4, HIGH);
+
+void moveMotorB(int speed, bool forward) {
+  if (INVERTIR_MOTOR_B) forward = !forward;
+  analogWrite(ENB, speed);
+  digitalWrite(IN3, forward ? HIGH : LOW);
+  digitalWrite(IN4, forward ? LOW : HIGH);
 }
-void turnLeft() {
-  analogWrite(ENA, baseSpeed); digitalWrite(IN1, LOW); digitalWrite(IN2, HIGH);
-  analogWrite(ENB, baseSpeed); digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+
+void moveForward() { 
+  moveMotorA(baseSpeed, true); 
+  moveMotorB(baseSpeed, true); 
 }
-void turnRight() {
-  analogWrite(ENA, baseSpeed); digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
-  analogWrite(ENB, baseSpeed); digitalWrite(IN3, LOW); digitalWrite(IN4, HIGH);
+void moveBackward() { 
+  moveMotorA(baseSpeed, false); 
+  moveMotorB(baseSpeed, false); 
+}
+void turnLeft() { 
+  moveMotorA(baseSpeed, false); 
+  moveMotorB(baseSpeed, true); 
+}
+void turnRight() { 
+  moveMotorA(baseSpeed, true); 
+  moveMotorB(baseSpeed, false); 
 }
 void stopMotors() {
   digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0); analogWrite(ENB, 0);
 }
 
-void modeAvoidance(long d) {
+void modeAvoidance(long d, bool objBehind) {
   if (d < 25 && d > 0) {
-    stopMotors(); delay(150);
-    moveBackward(); delay(400); 
-    turnRight(); delay(500); 
-    stopMotors(); delay(100);
+    stopMotors();
+    delay(100);
+    
+    // Si no hay obstáculo físico atrás, retrocede
+    if (!objBehind) {
+      moveBackward(); 
+      delay(300);
+    }
+    
+    turnRight();    
+    delay(450);
+    stopMotors();
+    delay(100);
   } else {
     moveForward();
   }
@@ -134,13 +173,14 @@ void modeLineFollower() {
   int s[5];
   for(int i=0; i<5; i++) s[i] = digitalRead(IR_PINS[i]);
   
-  if (s[2] == LINE_VALUE) moveForward();
-  else if (s[0] == LINE_VALUE || s[1] == LINE_VALUE) turnLeft(); 
-  else if (s[3] == LINE_VALUE || s[4] == LINE_VALUE) turnRight(); 
-  else stopMotors();
+  if (s[2] == 1) moveForward();
+  else if (s[0] == 1 || s[1] == 1) turnLeft();
+  else if (s[3] == 1 || s[4] == 1) turnRight();
+  else stopMotors(); // Sin línea o en blanco/negro total
 }
 
 void sendTelemetry(long d) {
+  // Formato App: P:123|L:10101
   Serial.print("P:"); Serial.print(d); Serial.print("|");
   Serial.print("L:");
   for(int i=0; i<5; i++) Serial.print(digitalRead(IR_PINS[i]));
