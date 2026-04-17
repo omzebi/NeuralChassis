@@ -5,12 +5,14 @@ const int ENA = 3;  const int IN1 = 5;  const int IN2 = 6;
 const int ENB = 11; const int IN3 = 9;  const int IN4 = 10;
 const int TRIG = 13; const int ECHO = 12;
 const int IR_PINS[] = {A0, A1, A2, A3, A4};
-
-// Módulo de Voz VC-02
 SoftwareSerial voiceModule(4, 2); 
 
 char currentMode = 'M'; 
-int baseSpeed = 170; // Velocidad ajustada para mejor control
+int baseSpeed = 160; 
+
+// --- VARIABLES PARA SEGUIDOR DE LÍNEA ---
+// Cámbialo a 0 si tu pista negra no funciona con 1
+const int LINE_VALUE = 1; 
 
 void setup() {
   Serial.begin(9600);
@@ -28,55 +30,30 @@ long getDistance() {
   digitalWrite(TRIG, LOW); delayMicroseconds(2);
   digitalWrite(TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
-  long duration = pulseIn(ECHO, HIGH, 25000); // Timeout 25ms
+  long duration = pulseIn(ECHO, HIGH, 30000); // 30ms timeout (aprox 5 metros)
   if (duration == 0) return 999;
   return duration * 0.034 / 2;
 }
 
-// Función auxiliar para saber si hay obstáculo detrás (usando matriz IR)
-bool isObstacleBehind() {
-  // OJO: Los TCRT5000 suelen dar LOW (0) al detectar obstáculo.
-  // Si tu sensor funciona al revés (detecta con 1), cambia esto a "== 1"
-  for(int i=0; i<5; i++) {
-    if(digitalRead(IR_PINS[i]) == 0) {
-      return true; // Hay algo pegado atrás
-    }
-  }
-  return false;
-}
-
 void loop() {
   long currentDist = getDistance();
-  bool objBehind = isObstacleBehind();
 
-  // Seguridad en modo Manual
-  if (currentMode == 'M') {
-    // Si frena de frente
-    if (currentDist < 15) {
-      digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
-      digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
-    }
+  // Freno automático en Pilot
+  if (currentMode == 'M' && currentDist < 15 && currentDist > 0) {
+    stopMotors();
   }
 
-  // Lectura Bluetooth
-  if (Serial.available()) {
-    char cmd = Serial.read();
-    processCommand(cmd, currentDist, objBehind);
-  }
-  
-  // Lectura Voz
+  // Comandos Bluetooth y Voz
+  if (Serial.available()) processCommand(Serial.read(), currentDist);
   if (voiceModule.available()) {
     char vCmd = voiceModule.read();
-    Serial.print("BT:VOICE_INDEX:");
-    Serial.println((int)vCmd);
-    processCommand(vCmd, currentDist, objBehind);
+    Serial.print("BT:VOICE_INDEX:"); Serial.println((int)vCmd);
+    processCommand(vCmd, currentDist);
   }
 
-  // Ejecución de Modos
-  if (currentMode == 'A') modeAvoidance(currentDist, objBehind);
+  if (currentMode == 'A') modeAvoidance(currentDist);
   else if (currentMode == 'X') modeLineFollower();
 
-  // Telemetría
   static unsigned long lastUpdate = 0;
   if (millis() - lastUpdate > 500) {
     sendTelemetry(currentDist);
@@ -84,10 +61,8 @@ void loop() {
   }
 }
 
-void processCommand(char c, long currentDist, bool objBehind) {
-  // BLOQUEO DE SEGURIDAD
-  if (currentDist < 15 && (c == 'F' || c == 1)) return; // No ir adelante si hay pared
-  if (objBehind && (c == 'B' || c == 2)) return;      // No ir atrás si hay pared (IR)
+void processCommand(char c, long d) {
+  if (d < 15 && (c == 'F' || c == 1)) return; // Freno seguridad adelante
 
   if (c == 'F' || c == 1) moveForward();
   else if (c == 'B' || c == 2) moveBackward();
@@ -121,22 +96,12 @@ void stopMotors() {
   digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
 }
 
-void modeAvoidance(long d, bool objBehind) {
+void modeAvoidance(long d) {
   if (d < 25 && d > 0) {
-    stopMotors();
-    delay(100);
-    
-    // Si hay que esquivar un obstáculo de frente, 
-    // solo retrocede si NO hay un obstáculo detrás (IR libres)
-    if (!objBehind) {
-      moveBackward(); 
-      delay(300);
-    }
-    
-    turnRight();    
-    delay(450);
-    stopMotors();
-    delay(100);
+    stopMotors(); delay(150);
+    moveBackward(); delay(400);  // Retroceso vital para no quedarse atascado girando
+    turnRight(); delay(500);     // Giro fuerte después de retroceder
+    stopMotors(); delay(100);
   } else {
     moveForward();
   }
@@ -145,14 +110,14 @@ void modeAvoidance(long d, bool objBehind) {
 void modeLineFollower() {
   int s[5];
   for(int i=0; i<5; i++) s[i] = digitalRead(IR_PINS[i]);
-  if (s[2] == 1) moveForward();
-  else if (s[0] == 1 || s[1] == 1) turnLeft();
-  else if (s[3] == 1 || s[4] == 1) turnRight();
+  
+  if (s[2] == LINE_VALUE) moveForward();
+  else if (s[0] == LINE_VALUE || s[1] == LINE_VALUE) turnLeft(); // Corrección rápida izquierda
+  else if (s[3] == LINE_VALUE || s[4] == LINE_VALUE) turnRight(); // Corrección rápida derecha
   else stopMotors();
 }
 
 void sendTelemetry(long d) {
-  // Formato App: P:123|L:10101
   Serial.print("P:"); Serial.print(d); Serial.print("|");
   Serial.print("L:");
   for(int i=0; i<5; i++) Serial.print(digitalRead(IR_PINS[i]));
