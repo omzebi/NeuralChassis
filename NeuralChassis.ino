@@ -49,13 +49,15 @@ void loop() {
   long currentDist = getDistance();
   bool rearObstacle = isObstacleBehind();
 
-  // Freno dinámico en Pilot: Corta la corriente si se acerca al muro mentras se mueve
+  // Freno dinámico de seguridad absoluta por lectura de Motor (Hardware check)
   if (currentMode == 'M') {
-    if (currentMoveState == 'F' && currentDist < 15 && currentDist > 0) {
+    // Si algún motor está yendo Hacia Adelante (IN1 o IN3 en HIGH) y hay muro delante:
+    if ((digitalRead(IN1) == HIGH || digitalRead(IN3) == HIGH) && currentDist < 15 && currentDist > 0) {
       stopMotors();
       currentMoveState = 'S';
     }
-    if (currentMoveState == 'B' && rearObstacle) {
+    // Si algún motor está yendo Hacia Atrás (IN2 o IN4 en HIGH) y hay muro detrás:
+    if ((digitalRead(IN2) == HIGH || digitalRead(IN4) == HIGH) && rearObstacle) {
       stopMotors();
       currentMoveState = 'S';
     }
