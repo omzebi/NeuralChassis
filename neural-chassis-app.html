@@ -309,6 +309,12 @@
                 else if(text.includes("stop") || text.includes("para") || text.includes("alto")) sendMove('S');
                 else if(text.includes("around") || text.includes("vuelta")) { sendMove(Math.random() > 0.5 ? '6' : '7'); }
             };
+            appVoiceRec.onerror = (evt) => {
+                uiAction("MIC ERROR: " + evt.error);
+                if(evt.error === 'not-allowed') {
+                    alert("Permiso Denegado: Tienes que dar permiso de Micrófono en los ajustes de Android para esta App.");
+                }
+            };
             appVoiceRec.onend = () => {
                 document.getElementById('app-mic-btn').classList.remove('bg-primary/20');
                 document.getElementById('app-mic-text').innerText = "App Voice Control";
@@ -316,10 +322,14 @@
         }
 
         function startAppVoice() {
-            if(appVoiceRec) {
-                appVoiceRec.start();
-            } else {
-                alert("Tu navegador (o Android WebView) no soporta reconocimiento de voz nativo.");
+            try {
+                if(appVoiceRec) {
+                    appVoiceRec.start();
+                } else {
+                    alert("Tu sistema de Android no tiene instalada u habilitada la Búsqueda por Voz de Google, o la WebView no la soporta.");
+                }
+            } catch (e) {
+                uiAction("MIC START ERR: " + e.message);
             }
         }
     </script>
