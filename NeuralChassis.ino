@@ -35,20 +35,30 @@ long getDistance() {
   return duration * 0.034 / 2;
 }
 
+// Devuelve TRUE si cualquiera de los 5 sensores traseros ve un obstáculo
+bool isObstacleBehind() {
+  for(int i=0; i<5; i++) {
+    // 0 = Hay obstáculo (luz infrarroja rebota)
+    if(digitalRead(IR_PINS[i]) == 0) return true; 
+  }
+  return false;
+}
+
 void loop() {
   long currentDist = getDistance();
+  bool rearObstacle = isObstacleBehind();
 
-  // Freno automático en Pilot
+  // Freno automático en Pilot: Ignorar comandos si choca
   if (currentMode == 'M' && currentDist < 15 && currentDist > 0) {
     stopMotors();
   }
 
   // Comandos Bluetooth y Voz
-  if (Serial.available()) processCommand(Serial.read(), currentDist);
+  if (Serial.available()) processCommand(Serial.read(), currentDist, rearObstacle);
   if (voiceModule.available()) {
     char vCmd = voiceModule.read();
     Serial.print("BT:VOICE_INDEX:"); Serial.println((int)vCmd);
-    processCommand(vCmd, currentDist);
+    processCommand(vCmd, currentDist, rearObstacle);
   }
 
   if (currentMode == 'A') modeAvoidance(currentDist);
@@ -61,8 +71,9 @@ void loop() {
   }
 }
 
-void processCommand(char c, long d) {
+void processCommand(char c, long d, bool rearObstacle) {
   if (d < 15 && (c == 'F' || c == 1)) return; // Freno seguridad adelante
+  if (rearObstacle && (c == 'B' || c == 2)) return; // Freno seguridad ATRÁS (IR trasero)
 
   if (c == 'F' || c == 1) moveForward();
   else if (c == 'B' || c == 2) moveBackward();
