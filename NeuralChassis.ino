@@ -8,6 +8,7 @@ const int IR_PINS[] = {A0, A1, A2, A3, A4};
 SoftwareSerial voiceModule(4, 2); 
 
 char currentMode = 'M'; 
+char currentMoveState = 'S'; 
 int baseSpeed = 160; 
 
 // --- VARIABLES PARA SEGUIDOR DE LÍNEA ---
@@ -48,9 +49,16 @@ void loop() {
   long currentDist = getDistance();
   bool rearObstacle = isObstacleBehind();
 
-  // Freno automático en Pilot: Ignorar comandos si choca
-  if (currentMode == 'M' && currentDist < 15 && currentDist > 0) {
-    stopMotors();
+  // Freno dinámico en Pilot: Corta la corriente si se acerca al muro mentras se mueve
+  if (currentMode == 'M') {
+    if (currentMoveState == 'F' && currentDist < 15 && currentDist > 0) {
+      stopMotors();
+      currentMoveState = 'S';
+    }
+    if (currentMoveState == 'B' && rearObstacle) {
+      stopMotors();
+      currentMoveState = 'S';
+    }
   }
 
   // Comandos Bluetooth y Voz
@@ -75,15 +83,15 @@ void processCommand(char c, long d, bool rearObstacle) {
   if (d < 15 && (c == 'F' || c == 1)) return; // Freno seguridad adelante
   if (rearObstacle && (c == 'B' || c == 2)) return; // Freno seguridad ATRÁS (IR trasero)
 
-  if (c == 'F' || c == 1) moveForward();
-  else if (c == 'B' || c == 2) moveBackward();
-  else if (c == 'L' || c == 3) turnLeft();
-  else if (c == 'R' || c == 4) turnRight();
-  else if (c == 'S' || c == 5) { currentMode = 'M'; stopMotors(); }
-  else if (c == 6) { turnRight(); delay(600); stopMotors(); }
-  else if (c == 7) { turnLeft(); delay(600); stopMotors(); }
-  else if (c == 'A') { currentMode = 'A'; }
-  else if (c == 'X') { currentMode = 'X'; }
+  if (c == 'F' || c == 1) { moveForward(); currentMoveState = 'F'; }
+  else if (c == 'B' || c == 2) { moveBackward(); currentMoveState = 'B'; }
+  else if (c == 'L' || c == 3) { turnLeft(); currentMoveState = 'L'; }
+  else if (c == 'R' || c == 4) { turnRight(); currentMoveState = 'R'; }
+  else if (c == 'S' || c == 5) { currentMode = 'M'; stopMotors(); currentMoveState = 'S'; }
+  else if (c == 6) { turnRight(); delay(600); stopMotors(); currentMoveState = 'S'; }
+  else if (c == 7) { turnLeft(); delay(600); stopMotors(); currentMoveState = 'S'; }
+  else if (c == 'A') { currentMode = 'A'; currentMoveState = 'S'; }
+  else if (c == 'X') { currentMode = 'X'; currentMoveState = 'S'; }
 }
 
 void moveForward() {
