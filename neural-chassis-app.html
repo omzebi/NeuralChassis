@@ -57,7 +57,20 @@
                 <div class="glass p-6 rounded-3xl"><span class="text-[10px] uppercase opacity-50">Power</span><p id="vdata-pwr" class="text-4xl font-headline font-bold text-secondary mt-2">87%</p></div>
                 <div class="glass p-6 rounded-3xl"><span class="text-[10px] uppercase opacity-50">Sensor</span><p id="vdata-prox" class="text-4xl font-headline font-bold text-primary mt-2">142cm</p></div>
             </div>
-            <div class="glass p-6 rounded-3xl mt-6 h-64 flex flex-col">
+            
+            <!-- IR MATRIX (NUEVO) -->
+            <div class="glass p-6 rounded-3xl mt-6">
+                <span class="text-[10px] uppercase opacity-50 mb-4 font-bold block">IR Line Matrix (A0-A4)</span>
+                <div class="flex justify-between gap-2 px-2" id="ir-matrix-visual">
+                    <div class="flex-1 h-8 rounded-lg bg-white/5 border border-white/10 transition-colors duration-200"></div>
+                    <div class="flex-1 h-8 rounded-lg bg-white/5 border border-white/10 transition-colors duration-200"></div>
+                    <div class="flex-1 h-8 rounded-lg bg-white/5 border border-white/10 transition-colors duration-200"></div>
+                    <div class="flex-1 h-8 rounded-lg bg-white/5 border border-white/10 transition-colors duration-200"></div>
+                    <div class="flex-1 h-8 rounded-lg bg-white/5 border border-white/10 transition-colors duration-200"></div>
+                </div>
+            </div>
+
+            <div class="glass p-6 rounded-3xl mt-6 h-48 flex flex-col">
                 <span class="text-[10px] uppercase opacity-50 mb-4 font-bold">Diagnostics & Bluetooth Feed</span>
                 <div id="diag-log" class="flex-1 font-mono text-[9px] space-y-1 opacity-70 overflow-auto"></div>
             </div>
@@ -77,7 +90,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4 mt-12 w-full max-w-sm">
+                <div class="grid grid-cols-2 gap-4 mt-12 w-full max-sm:px-4 max-w-sm">
                     <button onclick="uiAction('Lights Activated')" class="glass p-5 rounded-2xl flex flex-col items-center gap-2 active:scale-95 active:bg-white/5 transition-all">
                         <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
                         <span class="text-[10px] font-bold uppercase tracking-widest">Lights</span>
@@ -95,9 +108,16 @@
         <section id="view-auto" class="view-content">
             <h2 class="font-headline text-[10px] uppercase tracking-[0.2em] mb-8 border-l-2 border-primary/50 pl-4">Directives</h2>
             <div class="space-y-6">
+                <!-- AVOIDANCE (MEJORADO) -->
                 <div class="glass p-8 rounded-3xl flex justify-between items-center group active:bg-white/5 transition-all">
                     <div><h3 class="font-headline text-2xl font-bold">Avoidance</h3><p class="text-[11px] text-on-surface-variant uppercase mt-1">Obstacle Mesh Active</p></div>
-                    <button onclick="toggleDirective(this)" class="w-16 h-8 bg-secondary/20 border border-secondary/40 rounded-full flex items-center px-1 transition-colors"><div class="w-6 h-6 bg-secondary shadow-[0_0_10px_#79ff5b] rounded-full ml-auto transition-transform"></div></button>
+                    <button onclick="toggleDirective(this, 'A')" class="w-16 h-8 bg-white/5 border border-white/10 rounded-full flex items-center px-1 transition-colors relative"><div class="w-6 h-6 bg-white/20 rounded-full transition-all"></div></button>
+                </div>
+                
+                <!-- LINE FOLLOWER (RESTABLECIDO) -->
+                <div class="glass p-8 rounded-3xl flex justify-between items-center group active:bg-white/5 transition-all opacity-40">
+                    <div><h3 class="font-headline text-2xl font-bold">Line Follower</h3><p class="text-[11px] text-on-surface-variant uppercase mt-1">TCRT5000 Matrix Active</p></div>
+                    <button onclick="toggleDirective(this, 'X')" class="w-16 h-8 bg-white/5 border border-white/10 rounded-full flex items-center px-1 transition-colors relative"><div class="w-6 h-6 bg-white/20 rounded-full transition-all"></div></button>
                 </div>
             </div>
         </section>
@@ -131,9 +151,6 @@
 
     <script>
         const state = { view: 'data', power: 87, speed: 0, scanning: false, connected: false };
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('install-btn').classList.remove('opacity-40'); });
-        async function installPWA() { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; } else { alert("Use 'Add to Home Screen' in browser settings."); } }
         
         function nav(id) {
             document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
@@ -166,12 +183,28 @@
 
         function emergencyStop() { state.speed = 0; document.getElementById('vpilot-speed').innerText = "0.0"; sendMove('S'); alert("STOP"); }
 
-        function toggleDirective(btn) {
+        function toggleDirective(btn, cmd) {
             const ball = btn.querySelector('div');
-            if (ball.classList.contains('ml-auto')) {
-                ball.classList.remove('ml-auto'); btn.parentElement.classList.add('opacity-40');
+            const isActive = ball.classList.contains('ml-auto');
+            
+            if (!isActive) {
+                document.querySelectorAll('#view-auto .glass button div').forEach(b => {
+                    b.classList.remove('ml-auto', 'bg-secondary', 'shadow-[0_0_10px_#79ff5b]');
+                    b.classList.add('bg-white/20');
+                    b.parentElement.parentElement.classList.add('opacity-40');
+                });
+            }
+
+            if (isActive) {
+                ball.classList.remove('ml-auto', 'bg-secondary', 'shadow-[0_0_10px_#79ff5b]'); 
+                ball.classList.add('bg-white/20');
+                btn.parentElement.classList.add('opacity-40');
+                sendMove('S');
             } else {
-                ball.classList.add('ml-auto'); btn.parentElement.classList.remove('opacity-40');
+                ball.classList.add('ml-auto', 'bg-secondary', 'shadow-[0_0_10px_#79ff5b]');
+                ball.classList.remove('bg-white/20');
+                btn.parentElement.classList.remove('opacity-40');
+                sendMove(cmd);
             }
         }
 
@@ -199,7 +232,7 @@
             window.addEventListener('touchend', () => { drag = false; handle.style.transition = 'transform 0.3s'; handle.style.transform = 'translate(0,0)'; sendMove('S'); lastCmd = 'S'; });
         }
 
-        // BT Native
+        // BT Scan
         document.getElementById('scan-btn').onclick = () => {
             if (!window.bluetoothSerial) { alert("Use APK for HC-05"); return; }
             uiAction("Listing Paired...");
@@ -217,29 +250,34 @@
             }, (err) => alert("List fail: " + err));
         };
 
-        // Telemetry & Serial Input from Arduino
+        // Telemetry Feed
         setInterval(() => {
             if (window.bluetoothSerial && state.connected) {
                 window.bluetoothSerial.read((data) => {
                     if (data && data.length > 0) {
-                        // Parse Proximity P:123
                         if (data.includes('P:')) {
                             const val = data.split('P:')[1].split('|')[0];
                             const prox = document.getElementById('vdata-prox');
                             if (prox) prox.innerText = val + "cm";
                         }
-                        // Parse IR Line Sensors L:10101
                         if (data.includes('L:')) {
                             const val = data.split('L:')[1].trim();
-                            uiAction("IR MATRIX: " + val);
+                            const blocks = document.querySelectorAll('#ir-matrix-visual div');
+                            for(let i=0; i<5; i++) {
+                                if(val[i] === '1') {
+                                    blocks[i].classList.add('bg-secondary', 'shadow-[0_0_8px_#79ff5b]');
+                                    blocks[i].classList.remove('bg-white/5');
+                                } else {
+                                    blocks[i].classList.remove('bg-secondary', 'shadow-[0_0_8px_#79ff5b]');
+                                    blocks[i].classList.add('bg-white/5');
+                                }
+                            }
                         }
                     }
                 }, (err) => console.log(err));
             }
-            
             state.power = Math.max(0, state.power - 0.001);
             const p = document.getElementById('vdata-pwr'); if (p) p.innerText = Math.round(state.power) + "%";
-            if (Math.random() > 0.99) uiAction("System connection stable...");
         }, 500);
     </script>
 </body>
